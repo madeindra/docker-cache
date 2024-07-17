@@ -57,7 +57,7 @@ describe("Docker images", (): void => {
 
   const assertLoadDockerImages = (key: string, cacheHit: boolean): void => {
     expect(core.getInput).lastCalledWith("key", { required: true });
-    expect(cache.restoreCache).lastCalledWith([docker.DOCKER_IMAGES_PATH], key);
+    expect(cache.restoreCache).lastCalledWith([docker.DOCKER_COMPRESSED_IMAGES_PATH], key);
     expect(core.saveState).nthCalledWith<[string, boolean]>(
       1,
       docker.CACHE_HIT,
@@ -66,7 +66,7 @@ describe("Docker images", (): void => {
     expect(core.setOutput).lastCalledWith(docker.CACHE_HIT, cacheHit);
     if (cacheHit) {
       expect(util.execBashCommand).lastCalledWith(
-        `docker load --input ${docker.DOCKER_IMAGES_PATH}`,
+        `docker load < ${docker.DOCKER_COMPRESSED_IMAGES_PATH}`,
       );
     } else {
       expect(util.execBashCommand).lastCalledWith(LIST_COMMAND);
@@ -178,17 +178,15 @@ describe("Docker images", (): void => {
     expect(cache.saveCache).not.toHaveBeenCalled();
   };
 
-  const assertSaveCacheMiss = (key: string, newImages: string[]): void => {
+  const assertSaveCacheMiss = (key: string): void => {
     expect(core.info).lastCalledWith(
       "Images present before restore step will be skipped; only new images " +
         "will be saved.",
     );
     expect(util.execBashCommand).lastCalledWith(
-      `docker save --output ${docker.DOCKER_IMAGES_PATH} ${newImages.join(
-        " ",
-      )}`,
+      `gzip -f ${docker.DOCKER_IMAGES_PATH} > ${docker.DOCKER_COMPRESSED_IMAGES_PATH}`,
     );
-    expect(cache.saveCache).lastCalledWith([docker.DOCKER_IMAGES_PATH], key);
+    expect(cache.saveCache).lastCalledWith([docker.DOCKER_COMPRESSED_IMAGES_PATH], key);
 
     /* The Docker images must be saved before the cache can be. This at least
      * checks that the calls are made in the right order, but doesn't ensure
@@ -215,6 +213,10 @@ describe("Docker images", (): void => {
 
   test("exports DOCKER_IMAGES_PATH", (): void => {
     expect(docker.DOCKER_IMAGES_PATH).toBe("~/.docker-images.tar");
+  });
+
+  test("exports DOCKER_COMPRESSED_IMAGES_PATH", (): void => {
+    expect(docker.DOCKER_COMPRESSED_IMAGES_PATH).toBe("~/.docker-images.tar.gz");
   });
 
   testProp(
@@ -290,7 +292,7 @@ describe("Docker images", (): void => {
       } else if (newImages.length === 0) {
         assertNoNewImagesToSave();
       } else {
-        assertSaveCacheMiss(key, newImages);
+        assertSaveCacheMiss(key);
       }
     },
     {

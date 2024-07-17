@@ -43,7 +43,7 @@ describe("Integration Test", (): void => {
   let execMock: Mock<(command: string) => Promise<ConsoleOutput>>;
 
   beforeEach((): void => {
-    loadCommand = `docker load --input ${docker.DOCKER_IMAGES_PATH}`;
+    loadCommand = `docker load < ${docker.DOCKER_COMPRESSED_IMAGES_PATH}`;
 
     cache.saveCache.mockImplementation(
       (paths: string[], primaryKey: string): Promise<number> => {
