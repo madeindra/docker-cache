@@ -6,6 +6,7 @@ import { execBashCommand } from "./util.js";
 const CACHE_HIT = "cache-hit";
 const DOCKER_IMAGES_LIST = "docker-images-list";
 const DOCKER_IMAGES_PATH = "~/.docker-images.tar";
+const DOCKER_COMPRESSED_IMAGES_PATH = "~/.docker-images.tar.gz";
 const LIST_COMMAND =
   "docker image list --format '" +
   '{{ if ne .Repository "<none>" }}{{ .Repository }}' +
@@ -13,12 +14,12 @@ const LIST_COMMAND =
 
 const loadDockerImages = async (): Promise<void> => {
   const requestedKey = getInput("key", { required: true });
-  const restoredKey = await restoreCache([DOCKER_IMAGES_PATH], requestedKey);
+  const restoredKey = await restoreCache([DOCKER_COMPRESSED_IMAGES_PATH], requestedKey);
   const cacheHit = requestedKey === restoredKey;
   saveState(CACHE_HIT, cacheHit);
   setOutput(CACHE_HIT, cacheHit);
   if (cacheHit) {
-    await execBashCommand(`docker load --input ${DOCKER_IMAGES_PATH}`);
+    await execBashCommand(`docker load < ${DOCKER_COMPRESSED_IMAGES_PATH}`);
   } else {
     info(
       "Recording preexisting Docker images. These include standard images " +
@@ -67,7 +68,9 @@ const saveDockerImages = async (): Promise<void> => {
       const newImagesArgs = newImages.join(" ");
       const cmd = `docker save --output ${DOCKER_IMAGES_PATH} ${newImagesArgs}`;
       await execBashCommand(cmd);
-      await saveCache([DOCKER_IMAGES_PATH], key);
+      const compressCmd = `gzip -f ${DOCKER_IMAGES_PATH} > ${DOCKER_COMPRESSED_IMAGES_PATH}`;
+      await execBashCommand(compressCmd);
+      await saveCache([DOCKER_COMPRESSED_IMAGES_PATH], key);
     }
   }
 };
@@ -78,4 +81,5 @@ export {
   CACHE_HIT,
   DOCKER_IMAGES_LIST,
   DOCKER_IMAGES_PATH,
+  DOCKER_COMPRESSED_IMAGES_PATH,
 };
